@@ -4,8 +4,12 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from youtubesearchpython import VideosSearch
 import yt_dlp
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel, QLineEdit, QMessageBox, QComboBox
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel, QLineEdit, QMessageBox, QComboBox, \
+    QFormLayout, QHBoxLayout
 from PyQt5.QtCore import QThread, pyqtSignal
+import platform
+import subprocess
+
 
 class DownloadThread(QThread):
     finished = pyqtSignal(str)
@@ -23,6 +27,7 @@ class DownloadThread(QThread):
         except Exception as e:
             self.finished.emit(f"Error: {str(e)}")
 
+
 class App(QWidget):
     def __init__(self):
         super().__init__()
@@ -37,29 +42,71 @@ class App(QWidget):
         self.client_id_input = QLineEdit()
         self.client_secret_input = QLineEdit()
         self.download_button = QPushButton('Download')
+        self.open_folder_button = QPushButton('Open Download Folder')
         self.progress_label = QLabel('')
 
         # Layout setup
+        form_layout = QFormLayout()
+        form_layout.addRow(QLabel('Service:'), self.service_combo)
+        form_layout.addRow(QLabel('URL:'), self.url_input)
+        form_layout.addRow(QLabel('Spotify Client ID:'), self.client_id_input)
+        form_layout.addRow(QLabel('Spotify Client Secret:'), self.client_secret_input)
+
+        # Adjust visibility of client id and secret
+        self.client_id_input.setVisible(False)
+        self.client_secret_input.setVisible(False)
+
+        # Center the buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(self.download_button)
+        button_layout.addWidget(self.open_folder_button)
+        button_layout.addStretch()
+
+        # Combine all layouts
         vbox = QVBoxLayout()
-        vbox.addWidget(self.service_combo)
-        vbox.addWidget(QLabel('URL:'))
-        vbox.addWidget(self.url_input)
-        vbox.addWidget(QLabel('Spotify Client ID (if Spotify):'))
-        vbox.addWidget(self.client_id_input)
-        vbox.addWidget(QLabel('Spotify Client Secret (if Spotify):'))
-        vbox.addWidget(self.client_secret_input)
-        vbox.addWidget(self.download_button)
+        vbox.addLayout(form_layout)
+        vbox.addLayout(button_layout)
         vbox.addWidget(self.progress_label)
 
         self.setLayout(vbox)
 
         # Connect signals
         self.download_button.clicked.connect(self.on_download_click)
+        self.open_folder_button.clicked.connect(self.open_download_folder)
         self.service_combo.currentIndexChanged.connect(self.on_service_change)
 
         # Window settings
         self.setWindowTitle('Music Downloader')
-        self.setGeometry(300, 300, 400, 300)
+        self.setGeometry(300, 300, 400, 250)
+
+        # Apply dark theme
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #2E2E2E;
+                color: #FFFFFF;
+            }
+            QLabel {
+                color: #FFFFFF;
+            }
+            QLineEdit, QComboBox, QPushButton {
+                background-color: #4C4C4C;
+                color: #FFFFFF;
+                border: 1px solid #7F7F7F;
+                padding: 5px;
+            }
+            QPushButton {
+                background-color: #3A3A3A;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5C5C5C;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                border-color: #009688;
+            }
+            """)
 
     def on_service_change(self):
         service = self.service_combo.currentText()
@@ -193,10 +240,20 @@ class App(QWidget):
 
         return download_youtube_video(url, 'downloads')
 
+    def open_download_folder(self):
+        if platform.system() == 'Windows':
+            subprocess.Popen(f'explorer {os.path.abspath("downloads")}')
+        elif platform.system() == 'Darwin':  # macOS
+            subprocess.Popen(['open', os.path.abspath("downloads")])
+        else:  # Linux
+            subprocess.Popen(['xdg-open', os.path.abspath("downloads")])
+
     def on_finished(self, message):
         QMessageBox.information(self, 'Finished', message)
         self.progress_label.setText('Download complete.')
         self.download_button.setEnabled(True)
+        self.open_folder_button.setEnabled(True)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
