@@ -99,6 +99,13 @@ class App(QWidget):
             QMessageBox.warning(self, 'Error', 'Please select a valid service.')
 
     def download_spotify(self, url, client_id, client_secret):
+        def get_spotify_track_info(track_url, client_id, client_secret):
+            sp = spotipy.Spotify(
+                auth_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
+            track_id = track_url.split('/')[-1].split('?')[0]
+            result = sp.track(track_id)
+            return result['name'], result['artists'][0]['name']
+
         def get_spotify_playlist_tracks(playlist_url, client_id, client_secret):
             sp = spotipy.Spotify(
                 auth_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
@@ -134,6 +141,14 @@ class App(QWidget):
                 os.rename(file_name, new_file)
                 return f"Downloaded to {new_file}"
 
+        def download_spotify_track(track_url, client_id, client_secret):
+            track_name, artist_name = get_spotify_track_info(track_url, client_id, client_secret)
+            video_url = search_youtube(f"{track_name} {artist_name}")
+            if video_url:
+                return download_youtube_video(video_url, 'downloads')
+            else:
+                return f"Could not find: {track_name} by {artist_name} on YouTube"
+
         def download_spotify_playlist(playlist_url, client_id, client_secret):
             track_and_artist_names = get_spotify_playlist_tracks(playlist_url, client_id, client_secret)
 
@@ -149,7 +164,9 @@ class App(QWidget):
 
             return 'All tracks downloaded.'
 
-        if "playlist" in url:
+        if 'track' in url:
+            return download_spotify_track(url, client_id, client_secret)
+        elif 'playlist' in url:
             return download_spotify_playlist(url, client_id, client_secret)
         else:
             return "Invalid Spotify URL"
